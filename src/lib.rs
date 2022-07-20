@@ -1,3 +1,5 @@
+mod packet_type;
+
 #[cfg(test)]
 mod tests {
     #[test]
