@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 
 #[derive(Debug, PartialEq)]
-enum PacketType {
+pub enum PacketType {
     CONNECT = 1,
     CONNACK,
     PUBLISH,
