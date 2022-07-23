@@ -1,4 +1,4 @@
-const ERROR_CODE: &'static str = "Malformed Packet";
+use crate::reason_code::ReasonCode;
 
 const VAR_BYTE_MAX_NUM_OF_BYTES: usize = 4;
 const VAR_BYTE_MIN_VALUE: u32 = 0;
@@ -7,10 +7,9 @@ const VAR_BYTE_FACTOR_VALUE_127: u8 = 127;
 const VAR_BYTE_FACTOR_VALUE_128: u8 = 128;
 const VAR_BYTE_MAX_VALUE_MAX_MULTIPLIER: u32 = 128 * 128 * 128;
 
-pub fn encode(mut value: u32) -> Result<Vec<u8>, &'static str> {
+pub fn encode(mut value: u32) -> Result<Vec<u8>, ReasonCode> {
     if value < VAR_BYTE_MIN_VALUE || value > VAR_BYTE_MAX_VALUE {
-        // TODO: This error shall be set from proper enum with error codes
-        return Err(ERROR_CODE);
+        return Err(ReasonCode::MalformedPacket);
     }
 
     let mut encoded_vec: Vec<u8> = Vec::new();
@@ -29,20 +28,18 @@ pub fn encode(mut value: u32) -> Result<Vec<u8>, &'static str> {
     }
 
     if encoded_vec.len() > VAR_BYTE_MAX_NUM_OF_BYTES {
-        // TODO: This error shall be set from proper enum with error codes
-        Err(ERROR_CODE)
+        Err(ReasonCode::MalformedPacket)
     } else {
         Ok(encoded_vec)
     }
 }
 
-pub fn decode(encoded_vec: &[u8]) -> Result<u32, &'static str> {
+pub fn decode(encoded_vec: &[u8]) -> Result<u32, ReasonCode> {
     if encoded_vec.is_empty()
         || encoded_vec.len() > VAR_BYTE_MAX_NUM_OF_BYTES
         || !is_byte_sequence_valid(encoded_vec)
     {
-        // TODO: This error shall be set from proper enum with error codes
-        return Err(ERROR_CODE);
+        return Err(ReasonCode::MalformedPacket);
     }
 
     let mut mutiplier: u32 = 1;
@@ -52,8 +49,7 @@ pub fn decode(encoded_vec: &[u8]) -> Result<u32, &'static str> {
         value += (encoded_byte & VAR_BYTE_FACTOR_VALUE_127) as u32 * mutiplier;
 
         if mutiplier > VAR_BYTE_MAX_VALUE_MAX_MULTIPLIER {
-            // TODO: This error shall be set from proper enum with error codes
-            return Err(ERROR_CODE);
+            return Err(ReasonCode::MalformedPacket);
         }
 
         mutiplier *= 128;
@@ -94,8 +90,8 @@ mod tests {
         test_data.push((2_097_152, Result::Ok(vec![0x80, 0x80, 0x80, 0x01])));
         test_data.push((268_435_455, Result::Ok(vec![0xFF, 0xFF, 0xFF, 0x7F])));
         //Values out of range
-        test_data.push((268_435_456, Result::Err(ERROR_CODE)));
-        test_data.push((268_435_457, Result::Err(ERROR_CODE)));
+        test_data.push((268_435_456, Result::Err(ReasonCode::MalformedPacket)));
+        test_data.push((268_435_457, Result::Err(ReasonCode::MalformedPacket)));
 
         test_data
             .into_iter()
@@ -130,7 +126,7 @@ mod tests {
 
     #[test]
     fn test_decode_parser() {
-        let mut test_data: Vec<(Vec<u8>, Result<u32, &str>)> = Vec::new();
+        let mut test_data: Vec<(Vec<u8>, Result<u32, ReasonCode>)> = Vec::new();
         test_data.push((vec![0x00], Result::Ok(0)));
         test_data.push((vec![0x7F], Result::Ok(127)));
         test_data.push((vec![0x80, 0x01], Result::Ok(128)));
@@ -141,9 +137,12 @@ mod tests {
         test_data.push((vec![0xFF, 0xFF, 0xFF, 0x7F], Result::Ok(268_435_455)));
 
         //input_vector_has_more_elements_than_allowed
-        test_data.push((vec![0x80, 0x80, 0x80, 0x80, 0x01], Result::Err(ERROR_CODE)));
+        test_data.push((
+            vec![0x80, 0x80, 0x80, 0x80, 0x01],
+            Result::Err(ReasonCode::MalformedPacket),
+        ));
         //input_vector_is_empty
-        test_data.push((vec![], Result::Err(ERROR_CODE)));
+        test_data.push((vec![], Result::Err(ReasonCode::MalformedPacket)));
         /*
         NOTE: the aim of inputs below are to check that the decode function is
         robust against wrong sequence of bytes. For example:
@@ -152,15 +151,24 @@ mod tests {
         there should not be following bytes after it but there is a 3th byte v0x80
         */
         // 1st is invalid as is states there is more bytes after it but there are not.
-        test_data.push((vec![0x80], Result::Err(ERROR_CODE)));
+        test_data.push((vec![0x80], Result::Err(ReasonCode::MalformedPacket)));
         // bytes after 1st one are invalid
-        test_data.push((vec![0x00, 0x01], Result::Err(ERROR_CODE)));
+        test_data.push((vec![0x00, 0x01], Result::Err(ReasonCode::MalformedPacket)));
         // bytes after 2nd one are invalid
-        test_data.push((vec![0x80, 0x01, 0x01], Result::Err(ERROR_CODE)));
+        test_data.push((
+            vec![0x80, 0x01, 0x01],
+            Result::Err(ReasonCode::MalformedPacket),
+        ));
         // bytes after 3th one are invalid
-        test_data.push((vec![0x80, 0x80, 0x10, 0x01], Result::Err(ERROR_CODE)));
+        test_data.push((
+            vec![0x80, 0x80, 0x10, 0x01],
+            Result::Err(ReasonCode::MalformedPacket),
+        ));
         // 4th is invalid as is states there is more bytes after it but there are not.
-        test_data.push((vec![0x80, 0x80, 0x80, 0x80], Result::Err(ERROR_CODE)));
+        test_data.push((
+            vec![0x80, 0x80, 0x80, 0x80],
+            Result::Err(ReasonCode::MalformedPacket),
+        ));
 
         test_data
             .into_iter()

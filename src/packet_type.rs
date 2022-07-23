@@ -1,5 +1,7 @@
 use std::convert::TryFrom;
 
+use crate::reason_code::ReasonCode;
+
 #[derive(Debug, PartialEq)]
 pub enum PacketType {
     CONNECT = 1,
@@ -20,7 +22,7 @@ pub enum PacketType {
 }
 
 impl TryFrom<u8> for PacketType {
-    type Error = String; // TODO: this error shall be Malformed Packet comming from a Enum instead of String type
+    type Error = ReasonCode;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
@@ -39,7 +41,7 @@ impl TryFrom<u8> for PacketType {
             13 => Ok(PacketType::PINGRESP),
             14 => Ok(PacketType::DISCONNECT),
             15 => Ok(PacketType::AUTH),
-            _ => Err(String::from("Malformed Packet")),
+            _ => Err(ReasonCode::MalformedPacket),
         }
     }
 }
@@ -52,7 +54,7 @@ mod tests {
     #[test]
     fn check_that_correct_mapping_from_value_to_packet_type_is_done() {
         let mut test_data = Vec::new();
-        test_data.push((0, Result::Err("Malformed Packet".to_string())));
+        test_data.push((0, Result::Err(ReasonCode::MalformedPacket)));
         test_data.push((1, Result::Ok(PacketType::CONNECT)));
         test_data.push((2, Result::Ok(PacketType::CONNACK)));
         test_data.push((3, Result::Ok(PacketType::PUBLISH)));
@@ -69,10 +71,14 @@ mod tests {
         test_data.push((14, Result::Ok(PacketType::DISCONNECT)));
         test_data.push((15, Result::Ok(PacketType::AUTH)));
         test_data.push((15, Result::Ok(PacketType::AUTH)));
-        test_data.push((16, Result::Err("Malformed Packet".to_string())));
+        test_data.push((16, Result::Err(ReasonCode::MalformedPacket)));
 
-        for (value, expected_packet) in test_data {
-            assert_eq!(expected_packet, PacketType::try_from(value));
-        }
+        test_data
+            .into_iter()
+            .enumerate()
+            .for_each(|(test_case, (value, expected_result))| {
+                println!("Running Test Case: {}", test_case);
+                assert_eq!(expected_result, PacketType::try_from(value));
+            });
     }
 }

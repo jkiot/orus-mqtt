@@ -1,5 +1,6 @@
 mod packet_type;
-mod variable_byte_interger;
+mod reason_code;
+mod variable_byte_integer;
 #[cfg(test)]
 mod tests {
 
